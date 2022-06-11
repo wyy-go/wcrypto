@@ -1,10 +1,14 @@
 package gm
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tjfoc/gmsm/sm2"
 	"github.com/tjfoc/gmsm/sm4"
 	"github.com/tjfoc/gmsm/x509"
 )
@@ -66,4 +70,43 @@ func TestSm4(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, data, plainText)
+}
+
+func TestReadHexPrivateKey1(t *testing.T) {
+	// read hex private key
+	privateKeyByte := []byte("888DB2B7CD4B8E184258D93CF0C44ED4FD2E85DC34B953D2A30F4939CCCD5369")
+	msg := []byte("this is a test.")
+	uid := []byte("12345678")
+
+	curve := sm2.P256Sm2()
+	curve.ScalarBaseMult(privateKeyByte)
+	privateKey := new(sm2.PrivateKey)
+	privateKey.PublicKey.Curve = curve
+	privateKey.D, _ = new(big.Int).SetString(string(privateKeyByte), 16)
+	privateKey.PublicKey.X, privateKey.PublicKey.Y = curve.ScalarBaseMult(privateKeyByte)
+
+	r, s, err := sm2.Sm2Sign(privateKey, msg, uid, rand.Reader)
+	assert.NoError(t, err)
+
+	ss, err := sm2.SignDigitToSignData(r, s)
+	assert.NoError(t, err)
+	sg := base64.StdEncoding.EncodeToString(ss)
+	t.Log(sg)
+}
+
+func TestReadHexPrivateKey2(t *testing.T) {
+	// read hex private key
+	privateKeyStr := "888DB2B7CD4B8E184258D93CF0C44ED4FD2E85DC34B953D2A30F4939CCCD5369"
+	msg := []byte("this is a test.")
+	uid := []byte("12345678")
+
+	privateKey, err := x509.ReadPrivateKeyFromHex(privateKeyStr)
+	assert.NoError(t, err)
+
+	r, s, err := sm2.Sm2Sign(privateKey, msg, uid, rand.Reader)
+	assert.NoError(t, err)
+	ss, err := sm2.SignDigitToSignData(r, s)
+	assert.NoError(t, err)
+	sg := base64.StdEncoding.EncodeToString(ss)
+	t.Log(sg)
 }
